@@ -148,10 +148,10 @@ def find_mapping_files(project_root, modules):
         # 查找 cache 目录下的 mapping 文件
         cache_base = mod_build / "default" / "cache" / "default"
         # 使用 glob 匹配 default@CompileArkTs 目录（可能名字有变化）
-        compile_dirs = glob.glob(str(cache_base / "*CompileArkTs*" / "esmodule" / "release"))
+        compile_dirs = glob.glob(str(cache_base / "*ompile*rk*" / "esmodule" / "release"))
         if not compile_dirs:
             # 尝试不带 esmodule 的路径
-            compile_dirs = glob.glob(str(cache_base / "*CompileArkTs*" / "*" / "release"))
+            compile_dirs = glob.glob(str(cache_base / "*ompile*rk*" / "*" / "release"))
 
         for compile_dir in compile_dirs:
             # nameCache.json
