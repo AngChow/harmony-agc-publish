@@ -8,7 +8,7 @@
 
 | 步骤 | 能力 | 风险等级 |
 |:---:|------|:---:|
-| **Step 1** | 签名配置检查 — 自动检测调试/发布证书，必要时一键切换为发布证书 | 仅改本地文件 |
+| **Step 1** | 签名配置检查 — 自动检测当前签名配置，必要时切换为发布配置（支持双配置引用切换和单配置路径替换） | 仅改本地文件 |
 | **Step 2** | 版本号校验 — 调 AGC API 查询在架版本，确保本地版本号 > 在架版本 | 只读 |
 | **Step 3** | Release 打包 — 调用 `devecocli` 构建 signed `.app` | 本地构建 |
 | **Step 3.5** | Bugly 符号表上传 — 自动扫描 nameCache.json / sourceMaps.json / Debug SO 并上传到 Bugly | 写 Bugly 平台 |
@@ -90,7 +90,11 @@ Skill 内所有脚本会**自动加载** `project_root/.agc_env`，无需手动 
 
 #### 4.2 证书目录结构
 
-`check_signing.py` 会**自动扫描** keystore 目录下的子目录来查找发布证书，无需手动配置路径。请按以下结构组织证书文件：
+`check_signing.py` 支持两种 `build-profile.json5` 签名配置格式，会自动识别并选择对应的切换策略：
+
+**模式 1：双签名配置（推荐）** — `signingConfigs` 中同时定义 `debug` 和 `release` 两个独立配置，`products[].signingConfig` 引用其一。脚本只需将引用从 `"debug"` 切换为 `"release"`，不修改任何签名配置本身。这是最安全的方式，调试和发布配置互不污染。
+
+**模式 2：单签名配置（兼容旧格式）** — `signingConfigs` 只有一个配置，脚本通过 `profile` / `certpath` 路径中的关键词（"调试"/"Debug" vs "发布"/"Release"）判断当前类型，然后替换路径。此模式下脚本会**自动扫描** keystore 目录下的子目录来查找发布证书，无需手动配置路径。请按以下结构组织证书文件：
 
 ```
 ~/develop/keystore/harmony/          ← 默认路径（可通过 HARMONY_KEYSTORE_DIR 环境变量覆盖）
@@ -323,6 +327,8 @@ PATH="/usr/local/bin:$PATH" devecocli build --product default --build-mode relea
 `check_signing.py` 早期版本硬编码了 `release.p12` / `Release.p7b` / `Release.cer` 三个文件名，但实际项目中密钥库名为 `xrxs.p12`、Profile 在 `发布Profile/` 子目录下且文件名含空格。改为**自动扫描 keystore 目录下的子目录**，通过目录名中的关键词（"发布"/"Release" vs "调试"/"Debug"）匹配。
 
 **关键：`.p12` 密钥库在调试和发布时是同一个文件，不应替换。只替换 `.p7b`（Profile）和 `.cer`（证书）。**
+
+> **后续演进**：单配置模式的路径替换存在一个隐患 — 当 `build-profile.json5` 中有多套签名配置时，`re.sub` 会全局替换所有 `"profile"` / `"certpath"` 字段，导致 debug 配置也被覆盖为发布路径。已新增**双签名配置模式**：`signingConfigs` 中独立定义 `debug` 和 `release` 两套配置，脚本只切换 `products[].signingConfig` 的引用值，不修改任何配置内容，从根本上避免污染。
 
 ### 7. Bugly 符号表扫描：glob 大小写敏感
 
