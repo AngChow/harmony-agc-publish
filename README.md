@@ -121,79 +121,38 @@ export HARMONY_RELEASE_CERT="/full/path/to/release.cer"       # 可选：直接�
 
 #### 4.3 确保 `.gitignore` 包含凭据文件
 
-```bash
-echo ".agc_env" >> .gitignore
-echo ".bugly_env" >> .gitignore
-```
+将 `.agc_env` 和 `.bugly_env` 加入项目的 `.gitignore`（或让 CodeX 帮你加）。
 
 ---
 
 ## 🚀 快速开始
 
-### 安装 Skill
+### 安装
 
-将本目录复制到 CodeX / Claude Code 的 skills 目录：
+对 CodeX 说：
 
-```bash
-cp -r harmony-agc-publish ~/.codex/skills/
-```
+**帮我安装 [AngChow/harmony-agc-publish](https://github.com/AngChow/harmony-agc-publish) 这个 skill 及相关库**
+
+CodeX 会自动拉取仓库、安装 Python 依赖。Bugly 符号表工具已内置在 `tools/buglyqq-upload-symbol.jar`，无需额外下载。
 
 ### 日常使用
 
-在 CodeX / Claude Code 中直接对话即可触发，例如：
+对 CodeX 说：
 
-> "把这个鸿蒙项目打包上传到 AGC"
+- **打包上传**：把这个鸿蒙项目打包上传到 AGC
+- **打包提审**：把这个鸿蒙项目打包提审到 AGC
+- **仅查版本**：帮我查下 AGC 上当前在架版本号
 
-CodeX / Claude Code 会自动按顺序执行 Step 1 → 4，并在 Step 5 前停下来等你确认。
+CodeX 会自动按顺序执行 Step 1 -> 4。如果你明确说了「提审」，会自动继续执行 Step 5 完成提交审核；如果只说「打包上传」而未提「提审」，则到 Step 4 为止。
 
-### 手动执行（脱离 CodeX / Claude Code）
+### 独立操作
 
-你也可以直接在终端跑各个脚本：
+| 需求 | 说法 |
+|------|------|
+| 查 AGC 应用信息 | 帮我查下这个鸿蒙应用在 AGC 上的信息 |
+| 补传 Bugly 符号表 | 帮我把当前项目的符号表上传到 Bugly |
 
-```bash
-cd /path/to/your/harmony-project
-
-# Step 1: 检查/切换签名配置
-python3 ~/.codex/skills/harmony-agc-publish/scripts/check_signing.py "$(pwd)"
-
-# Step 2: 检查版本号（本地 vs AGC 在架）
-python3 ~/.codex/skills/harmony-agc-publish/scripts/check_version.py "$(pwd)"
-
-# Step 3: Release 打包
-PATH="/usr/local/bin:$PATH" devecocli build --product default --build-mode release
-
-# Step 3.5: 上传符号表到 Bugly（需 .bugly_env，不存在则自动跳过）
-python3 ~/.codex/skills/harmony-agc-publish/scripts/upload_bugly_symbol.py "$(pwd)"
-
-# Step 4: 上传 .app 到 AGC
-python3 ~/.codex/skills/harmony-agc-publish/scripts/upload_app.py \
-    build/outputs/default/your-app-signed.app "$(pwd)"
-
-# Step 5: 提审（⚠️ 双重安全锁，请确认后再执行）
-AGC_CONFIRM_SUBMIT=YES \
-    python3 ~/.codex/skills/harmony-agc-publish/scripts/submit_review.py \
-    --i-know-this-submits-to-production \
-    --remark "修复若干已知问题" \
-    "$(pwd)"
-```
-
-### 独立查询应用信息
-
-```bash
-python3 ~/.codex/skills/harmony-agc-publish/scripts/query_app_info.py "$(pwd)"
-```
-
-输出 JSON，包含 `versionCode`、`onShelfVersionCode`、`releaseState`、`reviewState` 等字段。
-
-### 独立上传符号表到 Bugly
-
-如果你已经打过 Release 包，只想单独上传符号表（例如补传之前版本的符号表）：
-
-```bash
-python3 ~/.codex/skills/harmony-agc-publish/scripts/upload_bugly_symbol.py "$(pwd)"
-```
-
-脚本会自动扫描构建产物中的 `nameCache.json`、`sourceMaps.json` 和 Debug SO 文件并上传。
+查 AGC 应用信息会返回 JSON，包含 `versionCode`、`onShelfVersionCode`、`releaseState`、`reviewState` 等字段。补传符号表时 CodeX 会自动扫描构建产物中的 `nameCache.json`、`sourceMaps.json` 和 Debug SO 文件并上传。
 
 ---
 
@@ -203,6 +162,8 @@ python3 ~/.codex/skills/harmony-agc-publish/scripts/upload_bugly_symbol.py "$(pw
 harmony-agc-publish/
 ├── README.md                          # 本文件
 ├── SKILL.md                           # CodeX / Claude Code Agent 指令文件（定义触发条件与执行流程）
+├── LICENSE                            # MIT
+├── requirements.txt                   # Python 依赖
 ├── agents/
 │   └── openai.yaml                    # Agent 配置
 ├── scripts/
@@ -215,7 +176,7 @@ harmony-agc-publish/
 │   ├── upload_app.py                  # Step 4: 上传 .app 到 OBS + 登记软件包信息
 │   └── submit_review.py               # Step 5: 提交审核（带双重安全锁）
 ├── tools/
-│   └── buglyqq-upload-symbol.jar      # Bugly 符号表上传工具（.gitignore，自动下载）
+│   └── buglyqq-upload-symbol.jar      # Bugly 符号表上传工具
 └── references/
     ├── agc_publishing_api.md          # AGC Publishing API 端点速查文档
     └── bugly_symbol_tool.md           # Bugly 符号表工具参考文档
@@ -283,7 +244,9 @@ Step 3.5 在 Release 打包完成后执行，自动扫描构建产物中的符�
 
 **两把锁缺一不可**。任意一把缺失，脚本直接退出（exit code 2），**不会发送任何 HTTP 请求**。
 
-CodeX / Claude Code Agent 在自动化场景下**默认不执行 Step 5**，即使用户说"提审"也会先复述参数让用户最终确认。
+CodeX / Claude Code Agent 的执行规则：用户明确说"提审"/"提交审核"时，Step 4 上传成功后**自动执行** Step 5，一气呵成；用户只说"打包上传"而未提"提审"时，**不执行** Step 5。
+
+> **AGC 包编译等待**：刚上传的 .app 包 AGC 需要编译处理（通常 1-2 分钟），期间 `app-submit` 接口返回 HTTP 200 但 `ret.code=204144719`。`submit_review.py` 会自动轮询等待（每 15s 重试，最多 10 次），编译完成后自动提交，无需手动重跑。
 
 ---
 
